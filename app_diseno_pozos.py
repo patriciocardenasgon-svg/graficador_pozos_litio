@@ -127,6 +127,9 @@ with col_grafico:
             key = next((k for k in styles_well if k in item), "Ciego")
             style = styles_well[key]
 
+            # Limpiamos el texto interno para quitar las pulgadas y dejarlo compacto en tramos cortos
+            item_limpio = item.replace(' 8"', '').replace(' 6"', '').replace(' 10"', '').replace(' 12"', '').strip()
+
             if "Punta Lapiz" in item:
                 pencil = patches.Polygon(
                     [(-half_w, top), (half_w, top), (0.0, bottom)],
@@ -134,8 +137,8 @@ with col_grafico:
                 )
                 ax1.add_patch(pencil)
                 ax1.text(
-                    -half_w - 0.15, (top + bottom) / 2.0, f"{item}\n({h:.1f} m)",
-                    ha="right", va="center", fontsize=8, weight="bold"
+                    -half_w - 0.15, (top + bottom) / 2.0, f"{item_limpio}\n({h:.1f} m)",
+                    ha="right", va="center", fontsize=7, weight="bold"
                 )
             else:
                 rect = patches.Rectangle(
@@ -143,19 +146,22 @@ with col_grafico:
                     linewidth=1.2, edgecolor="black", facecolor=style["color"], hatch=style["hatch"]
                 )
                 ax1.add_patch(rect)
-                ax1.text(
-                    0, (top + bottom) / 2.0, f"{item}\n({h:.1f} m)",
-                    ha="center", va="center", fontsize=8, weight="bold", color="#0D47A1"
-                )
+                
+                # Omitimos texto interior solo si el tramo es extremadamente chico (< 1.5 m) para evitar manchas
+                if h >= 1.5:
+                    ax1.text(
+                        0, (top + bottom) / 2.0, f"{item_limpio}\n({h:.1f} m)",
+                        ha="center", va="center", fontsize=6.5, weight="bold", color="#0D47A1"
+                    )
 
             ax1.text(
                 half_w + 0.1, bottom, f"{bottom:.1f} m",
-                va="center", ha="left", fontsize=8, color="#333333"
+                va="center", ha="left", fontsize=7.5, color="#333333"
             )
 
         ax1.text(
             half_w + 0.1, float(df_well["From"].iloc[0]), f"{float(df_well['From'].iloc[0]):.1f} m",
-            va="center", ha="left", fontsize=8, color="#333333"
+            va="center", ha="left", fontsize=7.5, color="#333333"
         )
         ax1.axhline(0.0, color="#D32F2F", linestyle=":", linewidth=1.2)
         ax1.text(
@@ -164,7 +170,7 @@ with col_grafico:
         )
 
         ax1.set_xlim(-2.8, 2.5)
-        ax1.set_title(f"Diseño Constructivo\n({nombre_pozo})", fontsize=11, weight="bold", pad=25)
+        ax1.set_title(f"Diseño Constructivo - {nombre_pozo}\n(Diámetro: 8 pulgadas)", fontsize=10, weight="bold", pad=25)
         ax1.set_ylabel("Profundidad (m bbp)", fontsize=10, weight="bold")
         ax1.get_xaxis().set_visible(False)
         ax1.grid(axis="y", linestyle="--", alpha=0.4)
