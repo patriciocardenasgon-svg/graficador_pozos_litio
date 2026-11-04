@@ -1,4 +1,5 @@
 import io
+import re
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ st.set_page_config(
 
 st.title("Generador de Perfiles de Pozo e Hidroquímica (Li / Na)")
 st.markdown(
-    "Edita las tablas a la izquierda o pega datos directamente desde Excel. "
+    "Edita las tablas a la izquierda o pega datos desde Excel. "
     "El gráfico se actualizará automáticamente a la derecha."
 )
 
@@ -31,8 +32,8 @@ with col_datos:
         "From": [-0.5, 45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5],
         "To": [45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5, 213.5],
         "Item": [
-            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"',
-            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Punta Lapiz 8"'
+            'Ciego', 'Filtro', 'Ciego', 'Filtro',
+            'Ciego', 'Filtro', 'Ciego', 'Filtro', 'Punta Lapiz'
         ]
     })
 
@@ -45,7 +46,7 @@ with col_datos:
             "To": st.column_config.NumberColumn("Hasta (m)", format="%.2f", required=True),
             "Item": st.column_config.SelectboxColumn(
                 "Elemento Constructivo",
-                options=['Ciego 8"', 'Filtro 8"', 'Punta Lapiz 8"', 'Ciego 6"', 'Filtro 6"', 'Punta Lapiz 6"'],
+                options=['Ciego', 'Filtro', 'Punta Lapiz'],
                 required=True
             )
         },
@@ -127,9 +128,6 @@ with col_grafico:
             key = next((k for k in styles_well if k in item), "Ciego")
             style = styles_well[key]
 
-            # Limpiamos el texto interno para quitar las pulgadas y dejarlo compacto en tramos cortos
-            item_limpio = item.replace(' 8"', '').replace(' 6"', '').replace(' 10"', '').replace(' 12"', '').strip()
-
             if "Punta Lapiz" in item:
                 pencil = patches.Polygon(
                     [(-half_w, top), (half_w, top), (0.0, bottom)],
@@ -137,8 +135,8 @@ with col_grafico:
                 )
                 ax1.add_patch(pencil)
                 ax1.text(
-                    -half_w - 0.15, (top + bottom) / 2.0, f"{item_limpio}\n({h:.1f} m)",
-                    ha="right", va="center", fontsize=7, weight="bold"
+                    -half_w - 0.15, (top + bottom) / 2.0, f"{item}\n({h:.1f} m)",
+                    ha="right", va="center", fontsize=6, weight="bold"
                 )
             else:
                 rect = patches.Rectangle(
@@ -147,21 +145,26 @@ with col_grafico:
                 )
                 ax1.add_patch(rect)
                 
-                # Omitimos texto interior solo si el tramo es extremadamente chico (< 1.5 m) para evitar manchas
-                if h >= 1.5:
-                    ax1.text(
-                        0, (top + bottom) / 2.0, f"{item_limpio}\n({h:.1f} m)",
-                        ha="center", va="center", fontsize=6.5, weight="bold", color="#0D47A1"
-                    )
+                # Control dinámico anti-amontonamiento:
+                # Si el tramo es grande (>= 5m), mostramos nombre y longitud.
+                # Si es mediano (entre 2.5m y 5m), mostramos solo el nombre abreviado.
+                # Si es muy chico (< 2.5m), omitimos el texto interior para que no se superponga, ya que la profundidad se ve al lado.
+                mid_y = (top + bottom) / 2.0
+                if h >= 5.0:
+                    ax1.text(0, mid_y, f"{item}\n({h:.1f} m)", ha="center", va="center", fontsize=6.5, weight="bold", color="#0D47A1")
+                elif h >= 2.5:
+                    ax1.text(0, mid_y, item, ha="center", va="center", fontsize=6, weight="bold", color="#0D47A1")
+                # Si h < 2.5 no se imprime texto adentro para mantenerlo totalmente limpio y sin solapes
 
+            # Marcar la profundidad inferior en el lateral
             ax1.text(
                 half_w + 0.1, bottom, f"{bottom:.1f} m",
-                va="center", ha="left", fontsize=7.5, color="#333333"
+                va="center", ha="left", fontsize=7, color="#333333"
             )
 
         ax1.text(
             half_w + 0.1, float(df_well["From"].iloc[0]), f"{float(df_well['From'].iloc[0]):.1f} m",
-            va="center", ha="left", fontsize=7.5, color="#333333"
+            va="center", ha="left", fontsize=7, color="#333333"
         )
         ax1.axhline(0.0, color="#D32F2F", linestyle=":", linewidth=1.2)
         ax1.text(
@@ -170,7 +173,7 @@ with col_grafico:
         )
 
         ax1.set_xlim(-2.8, 2.5)
-        ax1.set_title(f"Diseño Constructivo - {nombre_pozo}\n(Diámetro: 8 pulgadas)", fontsize=10, weight="bold", pad=25)
+        ax1.set_title(f"Diseño Constructivo - {nombre_pozo}\n(Diámetro general: 8 pulgadas)", fontsize=10, weight="bold", pad=25)
         ax1.set_ylabel("Profundidad (m bbp)", fontsize=10, weight="bold")
         ax1.get_xaxis().set_visible(False)
         ax1.grid(axis="y", linestyle="--", alpha=0.4)
