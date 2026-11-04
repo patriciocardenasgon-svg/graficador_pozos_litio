@@ -22,19 +22,18 @@ col_datos, col_grafico = st.columns([1.15, 1.35], gap="large")
 
 with col_datos:
     st.subheader("1. Identificación del Pozo")
-    nombre_pozo = st.text_input("Nombre / Código del Pozo:", value="LI.PC.RW-03")
+    nombre_pozo = st.text_input("Nombre / Código del Pozo:", value="LI.PC.RW-08")
 
     st.subheader("2. Diseño Constructivo")
     st.caption("Puedes modificar valores, agregar filas con el símbolo '+' al final de la tabla o borrar filas seleccionándolas y presionando Supr.")
     
-    # Datos por defecto completos hasta los 355 metros
+    # Datos por defecto iniciales (versión limpia y corta de ~213 m)
     default_well = pd.DataFrame({
-        "From": [0, 20, 25, 28, 31, 34, 37, 40, 61, 87, 96, 102, 123, 134, 143, 161, 311, 314, 317, 320, 323, 326, 332],
-        "To": [20, 25, 28, 31, 34, 37, 40, 61, 87, 96, 102, 123, 134, 143, 161, 311, 314, 317, 320, 323, 326, 332, 355],
+        "From": [-0.5, 45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5],
+        "To": [45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5, 213.5],
         "Item": [
-            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"',
-            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"',
-            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Punta Lapiz 8"'
+            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"',
+            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Punta Lapiz 8"'
         ]
     })
 
@@ -113,9 +112,15 @@ with col_grafico:
                 return {"color": "#AB47BC", "alpha": 0.18, "label": "Tramo Packer Doble"}
             return {"color": "#00897B", "alpha": 0.18, "label": "Tramo Packer Punta Libre"}
 
-        # Creación de la figura Matplotlib con altura proporcional a los 355 metros
+        # Creación de la figura Matplotlib con altura dinámica según la profundidad máxima
+        max_depth_calc = max(
+            df_well["To"].max(),
+            df_tests["HASTA"].max() if not df_tests.empty else 0
+        )
+        fig_height = max(14, int(max_depth_calc / 18))
+
         fig, (ax1, ax2) = plt.subplots(
-            1, 2, figsize=(12, 18), sharey=True, gridspec_kw={"width_ratios": [1, 1.4]}
+            1, 2, figsize=(12, fig_height), sharey=True, gridspec_kw={"width_ratios": [1, 1.4]}
         )
 
         # ----------------- COLUMNA 1: DISEÑO CONSTRUCTIVO -----------------
@@ -150,9 +155,6 @@ with col_grafico:
                 ax1.add_patch(rect)
                 
                 # Control anti-amontonamiento inteligente para tramos de pocos metros:
-                # Si el tramo mide más de 4 metros, muestra nombre y longitud.
-                # Si mide entre 2 y 4 metros, muestra solo el nombre.
-                # Si es menor a 2 metros, no pone texto dentro para evitar manchas, la profundidad se lee al lado.
                 mid_y = (top + bottom) / 2.0
                 if h >= 4.0:
                     ax1.text(0, mid_y, f"{item_limpio}\n({h:.1f} m)", ha="center", va="center", fontsize=6, weight="bold", color="#0D47A1")
@@ -238,11 +240,7 @@ with col_grafico:
             span_na = max(na_max - na_min, 1000)
             ax2_na.set_xlim(na_min - span_na * 0.9, na_max + span_na * 0.35)
 
-        max_depth = max(
-            df_well["To"].max(),
-            df_tests["HASTA"].max() if not df_tests.empty else 0
-        )
-        ax1.set_ylim(max_depth + 10, -10)
+        ax1.set_ylim(max_depth_calc + 10, -10)
 
         # ----------------- LEYENDA UNIFICADA -----------------
         legend_well = [
