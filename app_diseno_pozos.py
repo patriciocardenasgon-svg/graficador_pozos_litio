@@ -22,18 +22,19 @@ col_datos, col_grafico = st.columns([1.15, 1.35], gap="large")
 
 with col_datos:
     st.subheader("1. Identificación del Pozo")
-    nombre_pozo = st.text_input("Nombre / Código del Pozo:", value="LI.PC.RW-08")
+    nombre_pozo = st.text_input("Nombre / Código del Pozo:", value="LI.PC.RW-03")
 
     st.subheader("2. Diseño Constructivo")
     st.caption("Puedes modificar valores, agregar filas con el símbolo '+' al final de la tabla o borrar filas seleccionándolas y presionando Supr.")
     
-    # Datos por defecto de diseño
+    # Datos por defecto completos hasta los 355 metros
     default_well = pd.DataFrame({
-        "From": [-0.5, 45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5],
-        "To": [45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5, 213.5],
+        "From": [0, 20, 25, 28, 31, 34, 37, 40, 61, 87, 96, 102, 123, 134, 143, 161, 311, 314, 317, 320, 323, 326, 332],
+        "To": [20, 25, 28, 31, 34, 37, 40, 61, 87, 96, 102, 123, 134, 143, 161, 311, 314, 317, 320, 323, 326, 332, 355],
         "Item": [
-            'Ciego', 'Filtro', 'Ciego', 'Filtro',
-            'Ciego', 'Filtro', 'Ciego', 'Filtro', 'Punta Lapiz'
+            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"',
+            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"',
+            'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Ciego 8"', 'Filtro 8"', 'Punta Lapiz 8"'
         ]
     })
 
@@ -46,7 +47,7 @@ with col_datos:
             "To": st.column_config.NumberColumn("Hasta (m)", format="%.2f", required=True),
             "Item": st.column_config.SelectboxColumn(
                 "Elemento Constructivo",
-                options=['Ciego', 'Filtro', 'Punta Lapiz'],
+                options=['Ciego 8"', 'Filtro 8"', 'Punta Lapiz 8"', 'Ciego 6"', 'Filtro 6"', 'Punta Lapiz 6"'],
                 required=True
             )
         },
@@ -84,7 +85,7 @@ with col_datos:
 with col_grafico:
     st.subheader("Vista Previa del Perfil")
 
-    # Limpieza de filas vacías mientras el usuario edita
+    # Limpieza estricta de filas vacías
     df_well = df_well.dropna(subset=["From", "To", "Item"]).copy()
     df_tests = df_tests.dropna(subset=["TIPO_DE_ENSAYO", "DESDE", "HASTA", "Li_ppm", "Na_ppm"]).copy()
 
@@ -112,9 +113,9 @@ with col_grafico:
                 return {"color": "#AB47BC", "alpha": 0.18, "label": "Tramo Packer Doble"}
             return {"color": "#00897B", "alpha": 0.18, "label": "Tramo Packer Punta Libre"}
 
-        # Creación de la figura Matplotlib
+        # Creación de la figura Matplotlib con altura proporcional a los 355 metros
         fig, (ax1, ax2) = plt.subplots(
-            1, 2, figsize=(12, 14), sharey=True, gridspec_kw={"width_ratios": [1, 1.4]}
+            1, 2, figsize=(12, 18), sharey=True, gridspec_kw={"width_ratios": [1, 1.4]}
         )
 
         # ----------------- COLUMNA 1: DISEÑO CONSTRUCTIVO -----------------
@@ -128,6 +129,9 @@ with col_grafico:
             key = next((k for k in styles_well if k in item), "Ciego")
             style = styles_well[key]
 
+            # Limpieza automática del texto interno (quita las pulgadas para que no sature)
+            item_limpio = re.sub(r'\b\d+\s*(?:"| pulgadas)?', '', item).strip()
+
             if "Punta Lapiz" in item:
                 pencil = patches.Polygon(
                     [(-half_w, top), (half_w, top), (0.0, bottom)],
@@ -135,7 +139,7 @@ with col_grafico:
                 )
                 ax1.add_patch(pencil)
                 ax1.text(
-                    -half_w - 0.15, (top + bottom) / 2.0, f"{item}\n({h:.1f} m)",
+                    -half_w - 0.15, (top + bottom) / 2.0, f"{item_limpio}\n({h:.1f} m)",
                     ha="right", va="center", fontsize=6, weight="bold"
                 )
             else:
@@ -145,18 +149,17 @@ with col_grafico:
                 )
                 ax1.add_patch(rect)
                 
-                # Control dinámico anti-amontonamiento:
-                # Si el tramo es grande (>= 5m), mostramos nombre y longitud.
-                # Si es mediano (entre 2.5m y 5m), mostramos solo el nombre abreviado.
-                # Si es muy chico (< 2.5m), omitimos el texto interior para que no se superponga, ya que la profundidad se ve al lado.
+                # Control anti-amontonamiento inteligente para tramos de pocos metros:
+                # Si el tramo mide más de 4 metros, muestra nombre y longitud.
+                # Si mide entre 2 y 4 metros, muestra solo el nombre.
+                # Si es menor a 2 metros, no pone texto dentro para evitar manchas, la profundidad se lee al lado.
                 mid_y = (top + bottom) / 2.0
-                if h >= 5.0:
-                    ax1.text(0, mid_y, f"{item}\n({h:.1f} m)", ha="center", va="center", fontsize=6.5, weight="bold", color="#0D47A1")
-                elif h >= 2.5:
-                    ax1.text(0, mid_y, item, ha="center", va="center", fontsize=6, weight="bold", color="#0D47A1")
-                # Si h < 2.5 no se imprime texto adentro para mantenerlo totalmente limpio y sin solapes
+                if h >= 4.0:
+                    ax1.text(0, mid_y, f"{item_limpio}\n({h:.1f} m)", ha="center", va="center", fontsize=6, weight="bold", color="#0D47A1")
+                elif h >= 2.0:
+                    ax1.text(0, mid_y, item_limpio, ha="center", va="center", fontsize=5.5, weight="bold", color="#0D47A1")
 
-            # Marcar la profundidad inferior en el lateral
+            # Marcar la profundidad inferior en el lateral derecho de la columna
             ax1.text(
                 half_w + 0.1, bottom, f"{bottom:.1f} m",
                 va="center", ha="left", fontsize=7, color="#333333"
@@ -239,7 +242,7 @@ with col_grafico:
             df_well["To"].max(),
             df_tests["HASTA"].max() if not df_tests.empty else 0
         )
-        ax1.set_ylim(max_depth + 6, -6)
+        ax1.set_ylim(max_depth + 10, -10)
 
         # ----------------- LEYENDA UNIFICADA -----------------
         legend_well = [
