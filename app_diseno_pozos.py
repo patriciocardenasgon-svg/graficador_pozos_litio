@@ -27,7 +27,7 @@ with col_datos:
     st.subheader("2. Diseño Constructivo")
     st.caption("Puedes modificar valores, agregar filas con el símbolo '+' al final de la tabla o borrar filas seleccionándolas y presionando Supr.")
     
-    # Datos por defecto iniciales (versión limpia y corta de ~213 m)
+    # Datos por defecto iniciales
     default_well = pd.DataFrame({
         "From": [-0.5, 45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5],
         "To": [45.5, 63.5, 71.5, 95.5, 101.5, 125.5, 131.5, 206.5, 213.5],
@@ -54,6 +54,14 @@ with col_datos:
     )
 
     st.subheader("3. Intervalos de Ensayo y Química (Li / Na)")
+    
+    # Menú rápido para personalizar los colores de los ensayos de Packer
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        color_doble = st.color_picker("Color Packer Doble", value="#AB47BC")
+    with col_c2:
+        color_libre = st.color_picker("Color Packer Punta Libre", value="#00897B")
+
     default_tests = pd.DataFrame({
         "TIPO_DE_ENSAYO": [
             "Packer Doble-03",
@@ -100,7 +108,7 @@ with col_grafico:
              df_tests["Mid_m"] = (df_tests["DESDE"] + df_tests["HASTA"]) / 2.0
              df_tests = df_tests.sort_values(by="Mid_m").reset_index(drop=True)
 
-        # Configuración de estilos
+        # Configuración de estilos de pozos
         styles_well = {
             "Ciego": {"color": "#90CAF9", "hatch": "", "label": "Tubería Ciega"},
             "Filtro": {"color": "#FFB74D", "hatch": "///", "label": "Filtro Ranurado"},
@@ -109,10 +117,10 @@ with col_grafico:
 
         def get_test_style(tipo):
             if "doble" in str(tipo).lower():
-                return {"color": "#AB47BC", "alpha": 0.18, "label": "Tramo Packer Doble"}
-            return {"color": "#00897B", "alpha": 0.18, "label": "Tramo Packer Punta Libre"}
+                return {"color": color_doble, "alpha": 0.22, "label": "Tramo Packer Doble"}
+            return {"color": color_libre, "alpha": 0.22, "label": "Tramo Packer Punta Libre"}
 
-        # Creación de la figura Matplotlib con altura dinámica según la profundidad máxima
+        # Creación de la figura Matplotlib con altura dinámica según profundidad
         max_depth_calc = max(
             df_well["To"].max(),
             df_tests["HASTA"].max() if not df_tests.empty else 0
@@ -134,7 +142,7 @@ with col_grafico:
             key = next((k for k in styles_well if k in item), "Ciego")
             style = styles_well[key]
 
-            # Limpieza automática del texto interno (quita las pulgadas para que no sature)
+            # Limpieza automática del texto interno
             item_limpio = re.sub(r'\b\d+\s*(?:"| pulgadas)?', '', item).strip()
 
             if "Punta Lapiz" in item:
@@ -154,14 +162,12 @@ with col_grafico:
                 )
                 ax1.add_patch(rect)
                 
-                # Control anti-amontonamiento inteligente para tramos de pocos metros:
                 mid_y = (top + bottom) / 2.0
                 if h >= 4.0:
                     ax1.text(0, mid_y, f"{item_limpio}\n({h:.1f} m)", ha="center", va="center", fontsize=6, weight="bold", color="#0D47A1")
                 elif h >= 2.0:
                     ax1.text(0, mid_y, item_limpio, ha="center", va="center", fontsize=5.5, weight="bold", color="#0D47A1")
 
-            # Marcar la profundidad inferior en el lateral derecho de la columna
             ax1.text(
                 half_w + 0.1, bottom, f"{bottom:.1f} m",
                 va="center", ha="left", fontsize=7, color="#333333"
@@ -248,8 +254,8 @@ with col_grafico:
             for v in styles_well.values()
         ]
         legend_tests = [
-            patches.Patch(facecolor="#AB47BC", alpha=0.25, edgecolor="#455A64", label="Tramo Packer Doble"),
-            patches.Patch(facecolor="#00897B", alpha=0.25, edgecolor="#455A64", label="Tramo Packer Punta Libre"),
+            patches.Patch(facecolor=color_doble, alpha=0.3, edgecolor="#455A64", label="Tramo Packer Doble"),
+            patches.Patch(facecolor=color_libre, alpha=0.3, edgecolor="#455A64", label="Tramo Packer Punta Libre"),
         ]
         legend_chem = [
             plt.Line2D([0], [0], color="#C2185B", marker="o", linewidth=2, label="Concentración Li (ppm)"),
